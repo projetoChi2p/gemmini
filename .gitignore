@@ -343,3 +343,10 @@ configs/
 generated-src/
 waveforms/
 
+
+# VSCode specific
+*.bsp
+*.metals
+*.vscode
+*.scala-build
+

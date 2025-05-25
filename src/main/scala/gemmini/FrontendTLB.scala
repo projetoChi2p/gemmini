@@ -25,6 +25,63 @@ class TLBExceptionIO extends Bundle {
   def flush(dummy: Int = 0): Bool = flush_retry || flush_skip
 }
 
+class UselessDecoupledTLB(entries: Int, maxSize: Int, use_firesim_simulation_counters: Boolean)(implicit edge: TLEdgeOut, p: Parameters)
+  extends CoreModule {
+
+  val lgMaxSize = log2Ceil(maxSize)
+  val io = IO(new Bundle {
+    val req = Flipped(Valid(new DecoupledTLBReq(lgMaxSize)))
+    val resp = new TLBResp
+    val ptw = new TLBPTWIO
+    val exp = new TLBExceptionIO
+    val counter = new CounterEventIO()
+  })
+    io.resp.pf.ld := false.B
+    io.resp.pf.st := false.B
+    io.resp.pf.inst := false.B
+    io.resp.gf.ld := false.B
+    io.resp.gf.st := false.B
+    io.resp.gf.inst := false.B
+    io.resp.ae.ld := false.B
+    io.resp.ae.st := false.B
+    io.resp.ae.inst := false.B
+    io.resp.ma.ld := false.B
+    io.resp.ma.st := false.B
+    io.resp.ma.inst := false.B
+    io.resp.miss := false.B
+    io.ptw.req.valid := true.B
+
+    //There has to be a better way to do this, but i don't know it
+      io.ptw.req.bits.bits.addr := true.B
+      io.ptw.req.bits.valid := true.B 
+      io.ptw.req.bits.bits.need_gpa := false.B 
+      io.ptw.req.bits.bits.vstage1 := false.B 
+      io.ptw.req.bits.bits.stage2 := false.B 
+      for (p <- io.ptw.customCSRs.csrs){
+        p.stall := false.B 
+        p.set := false.B 
+        p.sdata := 0.U
+      }
+      io.exp.interrupt := false.B
+      for (p <- io.counter.event_signal){
+        p := false.B 
+      }
+
+      for (p <- io.counter.external_values){
+        p := false.B 
+      }
+
+    io.resp.paddr := io.req.bits.tlb_req.vaddr
+    io.resp.gpa := io.req.bits.tlb_req.vaddr
+    io.resp.gpa_is_pte := true.B
+    io.resp.cacheable := true.B 
+    io.resp.must_alloc := true.B 
+    io.resp.prefetchable := true.B 
+    io.resp.size := 32.U
+    io.resp.cmd := 0.U
+
+}
+
 // TODO can we make TLB hits only take one cycle?
 class DecoupledTLB(entries: Int, maxSize: Int, use_firesim_simulation_counters: Boolean)(implicit edge: TLEdgeOut, p: Parameters)
   extends CoreModule {
@@ -99,12 +156,15 @@ class FrontendTLB(nClients: Int, entries: Int, maxSize: Int, use_tlb_register_fi
     val counter = new CounterEventIO()
   })
 
+//  val tlbs = Seq.fill(num_tlbs)(Module(new UselessDecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
   val tlbs = Seq.fill(num_tlbs)(Module(new DecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
+
 
   io.ptw <> VecInit(tlbs.map(_.io.ptw))
   io.exp <> VecInit(tlbs.map(_.io.exp))
 
   val tlbArbOpt = if (use_shared_tlb) Some(Module(new RRArbiter(new DecoupledTLBReq(lgMaxSize), nClients))) else None
+
 
   if (use_shared_tlb) {
     val tlbArb = tlbArbOpt.get

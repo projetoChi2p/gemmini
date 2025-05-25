@@ -177,6 +177,10 @@ class GemminiModule[T <: Data: Arithmetic, U <: Data, V <: Data]
 
   tlb.io.exp.foreach(_.flush_skip := false.B)
   tlb.io.exp.foreach(_.flush_retry := false.B)
+  
+  counters.io.event_io.event_signal(15) := false.B
+  counters.io.event_io.event_signal(16) := false.B
+  counters.io.event_io.event_signal(17) := false.B
 
   io.ptw <> tlb.io.ptw
 
