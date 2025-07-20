@@ -156,8 +156,8 @@ class FrontendTLB(nClients: Int, entries: Int, maxSize: Int, use_tlb_register_fi
     val counter = new CounterEventIO()
   })
 
-//  val tlbs = Seq.fill(num_tlbs)(Module(new UselessDecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
-  val tlbs = Seq.fill(num_tlbs)(Module(new DecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
+  val tlbs = Seq.fill(num_tlbs)(Module(new UselessDecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
+//  val tlbs = Seq.fill(num_tlbs)(Module(new DecoupledTLB(entries, maxSize, use_firesim_simulation_counters)))
 
 
   io.ptw <> VecInit(tlbs.map(_.io.ptw))

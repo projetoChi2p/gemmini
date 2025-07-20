@@ -648,7 +648,7 @@ class DualGemminiConfig extends Config((site, here, up) => {
       implicit val q = p
       int_gemmini = LazyModule(new Gemmini(GemminiConfigs.chipConfig.copy(
         opcodes = OpcodeSet.custom3,
-        use_shared_ext_mem = true,
+        use_shared_ext_mem = false,
         clock_gate = true
       )))
       int_gemmini
@@ -661,7 +661,7 @@ class DualGemminiConfig extends Config((site, here, up) => {
         tileColumns = 1, tileRows = 1,
         meshColumns = 8, meshRows = 8,
         acc_singleported = true, acc_banks = 2, acc_sub_banks = 2,
-        use_shared_ext_mem = true,
+        use_shared_ext_mem = false,
         ex_read_from_acc=false,
         ex_write_to_spad=false,
         hardcode_d_to_garbage_addr = true,

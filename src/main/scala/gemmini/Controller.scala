@@ -24,7 +24,7 @@ class Gemmini[T <: Data : Arithmetic, U <: Data, V <: Data](val config: GemminiA
                                      (implicit p: Parameters)
   extends LazyRoCC (
     opcodes = config.opcodes,
-    nPTWPorts = if (config.use_shared_tlb) 1 else 2) {
+    nPTWPorts = if (false && config.use_shared_tlb) 1 else 2) {
 
   Files.write(Paths.get(config.headerFilePath), config.generateHeader().getBytes(StandardCharsets.UTF_8))
   if (System.getenv("GEMMINI_ONLY_GENERATE_GEMMINI_H") == "1") {
@@ -34,7 +34,7 @@ class Gemmini[T <: Data : Arithmetic, U <: Data, V <: Data](val config: GemminiA
   val xLen = p(TileKey).core.xLen
   val spad = LazyModule(new Scratchpad(config))
 
-  val use_ext_tl_mem = config.use_shared_ext_mem && config.use_tl_ext_mem
+  val use_ext_tl_mem = false && config.use_shared_ext_mem && config.use_tl_ext_mem
   val num_ids = 32 // TODO (richard): move to config
   val spad_base = config.tl_ext_mem_base
   val spad_data_len = config.sp_width / 8
@@ -101,7 +101,7 @@ class GemminiModule[T <: Data: Arithmetic, U <: Data, V <: Data]
   import outer.config._
   import outer.spad
 
-  val ext_mem_io = if (use_shared_ext_mem && !use_tl_ext_mem)
+  val ext_mem_io = if (false && use_shared_ext_mem && !use_tl_ext_mem)
     Some(IO(new ExtSpadMemIO(sp_banks, acc_banks, acc_sub_banks))) else None
 
   if (outer.use_ext_tl_mem) {
@@ -154,7 +154,7 @@ class GemminiModule[T <: Data: Arithmetic, U <: Data, V <: Data]
     //     connect(ext_mem_acc(i)(0), log2Up(outer.acc_data_len),
     //       r_node, r_edge, source_counters(2), w_node, w_edge, source_counters(3))
     // }
-  } else if (use_shared_ext_mem) {
+  } else if (false && use_shared_ext_mem) {
     ext_mem_io.foreach(_ <> outer.spad.module.io.ext_mem.get)
   }
 
@@ -172,7 +172,7 @@ class GemminiModule[T <: Data: Arithmetic, U <: Data, V <: Data]
   // TLB
   implicit val edge = outer.spad.id_node.edges.out.head
   val tlb = Module(new FrontendTLB(if (outer.config.use_tl_ext_mem) 3 else 2,
-    tlb_size, dma_maxbytes, use_tlb_register_filter, use_firesim_simulation_counters, use_shared_tlb))
+    tlb_size, dma_maxbytes, use_tlb_register_filter, use_firesim_simulation_counters, false && use_shared_tlb))
   (tlb.io.clients zip outer.spad.module.io.tlb).foreach(t => t._1 <> t._2)
 
   tlb.io.exp.foreach(_.flush_skip := false.B)
