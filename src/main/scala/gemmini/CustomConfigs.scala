@@ -10,6 +10,7 @@ import freechips.rocketchip.tile.BuildRoCC
 object GemminiCustomConfigs {
   // Default configurations
   val defaultConfig = GemminiConfigs.defaultConfig
+  val leanConfig = GemminiConfigs.leanConfig
   val defaultFpConfig = GemminiFPConfigs.defaultFPConfig
 
   // Create your own configs here
@@ -41,6 +42,10 @@ object GemminiCustomConfigs {
     acc_capacity = CapacityInKilobytes(128),
   )
 
+  val noPTWConfig = leanConfig.copy(
+    use_shared_tlb = false,
+  )
+
   val ibertInferenceConfig = defaultConfig.copy(
     has_training_convs = false,
     has_max_pool =  false,
@@ -65,7 +70,7 @@ object GemminiCustomConfigs {
 
 
 class GemminiCustomConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
-  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiCustomConfigs.customConfig
+  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiCustomConfigs.noPTWConfig
 ) extends Config((site, here, up) => {
   case BuildRoCC => up(BuildRoCC) ++ Seq(
     (p: Parameters) => {
