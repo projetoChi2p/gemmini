@@ -13,6 +13,28 @@ import freechips.rocketchip.diplomacy._
 import gemmini.Arithmetic.SIntArithmetic
 import hardfloat._
 
+import chisel3.util.HasBlackBoxResource
+
+
+class AccScale extends BlackBox with HasBlackBoxResource {
+  val io = IO(new Bundle {
+    val din = Input(SInt(32.W))
+    val scale  = Input(Float(8, 24))
+    val out = Output(SInt(8.W))
+  })
+  addResource("/vsrc/acc_scale.sv")
+}
+
+class DTypeScale extends BlackBox with HasBlackBoxResource {
+  val io = IO(new Bundle {
+    val din = Input(SInt(8.W))
+    val scale  = Input(Float(8, 24))
+    val out = Output(SInt(8.W))
+  })
+  addResource("/vsrc/dtype_scale.sv")
+}
+
+
 // -----------------------
 // Component Mixin Configs
 // -----------------------
@@ -24,6 +46,7 @@ object GemminiConfigs {
     weightType = SInt(8.W),
     accType = SInt(32.W),
 
+
     spatialArrayInputType = SInt(8.W),
     spatialArrayWeightType = SInt(8.W),
     spatialArrayOutputType = SInt(20.W),
@@ -31,22 +54,15 @@ object GemminiConfigs {
     // Spatial array size options
     tileRows = 1,
     tileColumns = 1,
-    meshRows = 16,
-    meshColumns = 16,
+    meshRows = 8,
+    meshColumns = 8,
 
     // Spatial array PE options
     dataflow = Dataflow.BOTH,
 
     // Scratchpad and accumulator
     sp_capacity = CapacityInKilobytes(256),
-    acc_capacity = CapacityInKilobytes(64),
-
-    // DNN options
-    has_training_convs = true,
-    has_max_pool = true,
-    has_nonlinear_activations = true,
-
-
+    acc_capacity = CapacityInKilobytes(128),
 
     sp_banks = 4,
     acc_banks = 2,
@@ -54,8 +70,13 @@ object GemminiConfigs {
     sp_singleported = true,
     acc_singleported = false,
 
+    // DNN options
+    has_training_convs = true,
+    has_max_pool = true,
+    has_nonlinear_activations = true,
+
     // Reservation station entries
-    reservation_station_entries_ld = 8,                     
+    reservation_station_entries_ld = 8,
     reservation_station_entries_st = 4,
     reservation_station_entries_ex = 16,
 
@@ -316,7 +337,7 @@ object GemminiConfigs {
     ex_write_to_acc = true,
   )
 
-  val no2Config = GemminiArrayConfig[SInt, Float, Float](
+  val zedConfig = GemminiArrayConfig[SInt, Float, Float](
     // Datatypes
     inputType = SInt(8.W),
     weightType = SInt(8.W),
@@ -329,42 +350,42 @@ object GemminiConfigs {
     // Spatial array size options
     tileRows = 1,
     tileColumns = 1,
-    meshRows = 32,
-    meshColumns = 32,
+    meshRows = 8,
+    meshColumns = 8,
 
     // Spatial array PE options
-    dataflow = Dataflow.BOTH,
+    dataflow = Dataflow.WS,
 
     // Scratchpad and accumulator
-    sp_capacity = CapacityInKilobytes(256),
-    acc_capacity = CapacityInKilobytes(64),
+    sp_capacity = CapacityInKilobytes(32),
+    acc_capacity = CapacityInKilobytes(8),
 
-    sp_banks = 8,
-    acc_banks = 4,
+    sp_banks = 4,
+    acc_banks = 2,
 
     sp_singleported = true,
     acc_singleported = false,
 
     // DNN options
-    has_training_convs = true,
-    has_max_pool = true,
-    has_nonlinear_activations = true,
+    has_training_convs = false,
+    has_max_pool = false,
+    has_nonlinear_activations = false,
 
     // Reservation station entries
-    reservation_station_entries_ld = 16,
-    reservation_station_entries_st = 8,
-    reservation_station_entries_ex = 32,
+    reservation_station_entries_ld = 8,
+    reservation_station_entries_st = 4,
+    reservation_station_entries_ex = 16,
 
     // Ld/Ex/St instruction queue lengths
-    ld_queue_length = 16,
-    st_queue_length = 4,
-    ex_queue_length = 16,
+    ld_queue_length = 8,
+    st_queue_length = 2,
+    ex_queue_length = 8,
 
     // DMA options
-    max_in_flight_mem_reqs = 32,
+    max_in_flight_mem_reqs = 16,
 
     dma_maxbytes = 64,
-    dma_buswidth = 256,
+    dma_buswidth = 128,
 
     // TLB options
     tlb_size = 4,
@@ -412,7 +433,7 @@ object GemminiConfigs {
     mvin_scale_acc_args = None,
     mvin_scale_shared = false,
 
-    acc_scale_args = Some(ScaleArguments(
+    acc_scale_args = None, /*Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val f_rec = recFNFromFN(f.expWidth, f.sigWidth, f.bits)
 
@@ -449,10 +470,107 @@ object GemminiConfigs {
       8, Float(8, 24), -1,
       identity = "1.0",
       c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})"
-    )),
+    )),*/
 
     // SoC counters options
     num_counter = 8,
+
+    // Scratchpad and Accumulator input/output options
+    acc_read_full_width = true,
+    acc_read_small_width = false,
+
+    ex_read_from_spad = true,
+    ex_read_from_acc = true,
+    ex_write_to_spad = true,
+    ex_write_to_acc = true,
+  )
+
+  val smallerZedConfig = GemminiArrayConfig[SInt, Float, Float](
+    // Datatypes
+    inputType = SInt(8.W),
+    weightType = SInt(8.W),
+    accType = SInt(32.W),
+
+    spatialArrayInputType = SInt(8.W),
+    spatialArrayWeightType = SInt(8.W),
+    spatialArrayOutputType = SInt(20.W),
+
+    // Spatial array size options
+    tileRows = 1,
+    tileColumns = 1,
+    meshRows = 8,
+    meshColumns = 8,
+
+    // Spatial array PE options
+    dataflow = Dataflow.WS,
+
+    // Scratchpad and accumulator
+    sp_capacity = CapacityInKilobytes(128),
+    acc_capacity = CapacityInKilobytes(64),
+
+    sp_banks = 4,
+    acc_banks = 2,
+
+    sp_singleported = false,
+    acc_singleported = false,
+
+    // DNN options
+    has_training_convs = true,
+    has_max_pool = true,
+    has_nonlinear_activations = true,
+
+    // Reservation station entries
+    reservation_station_entries_ld = 8,
+    reservation_station_entries_st = 4,
+    reservation_station_entries_ex = 8,
+
+    // Ld/Ex/St instruction queue lengths
+    ld_queue_length = 8,
+    st_queue_length = 2,
+    ex_queue_length = 8,
+
+    // DMA options
+    max_in_flight_mem_reqs = 16,
+
+    dma_maxbytes = 64,
+    dma_buswidth = 128,
+
+    // TLB options
+    tlb_size = 4,
+
+    // Mvin and Accumulator scalar multiply options
+    mvin_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new DTypeScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), 4,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})",
+    )),
+
+    mvin_scale_acc_args = None,
+    mvin_scale_shared = false,
+
+    acc_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new AccScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), -1,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})",
+    )),
+    // SoC counters options
+    num_counter = 2,
 
     // Scratchpad and Accumulator input/output options
     acc_read_full_width = true,
@@ -464,8 +582,102 @@ object GemminiConfigs {
     ex_write_to_acc = true,
   )
 
+  val evenSmallerZedConfig = GemminiArrayConfig[SInt, Float, Float](
+    // Datatypes
+    inputType = SInt(8.W),
+    weightType = SInt(8.W),
+    accType = SInt(32.W),
 
+    spatialArrayInputType = SInt(8.W),
+    spatialArrayWeightType = SInt(8.W),
+    spatialArrayOutputType = SInt(20.W),
 
+    // Spatial array size options
+    tileRows = 1,
+    tileColumns = 1,
+    meshRows = 4,
+    meshColumns = 4,
+
+    // Spatial array PE options
+    dataflow = Dataflow.WS,
+
+    // Scratchpad and accumulator
+    sp_capacity = CapacityInKilobytes(128),
+    acc_capacity = CapacityInKilobytes(64),
+
+    sp_banks = 4,
+    acc_banks = 2,
+
+    sp_singleported = true,
+    acc_singleported = false,
+
+    // DNN options
+    has_training_convs = true,
+    has_max_pool = true,
+    has_nonlinear_activations = true,
+
+    // Reservation station entries
+    reservation_station_entries_ld = 8,
+    reservation_station_entries_st = 4,
+    reservation_station_entries_ex = 8,
+
+    // Ld/Ex/St instruction queue lengths
+    ld_queue_length = 8,
+    st_queue_length = 2,
+    ex_queue_length = 8,
+
+    // DMA options
+    max_in_flight_mem_reqs = 4,
+
+    dma_maxbytes = 64,
+    dma_buswidth = 128,
+
+    // TLB options
+    tlb_size = 4,
+
+    // Mvin and Accumulator scalar multiply options
+    mvin_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new DTypeScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), 4,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})",
+    )),
+
+    mvin_scale_acc_args = None,
+    mvin_scale_shared = false,
+
+    acc_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new AccScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), -1,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})",
+    )),
+    // SoC counters options
+    num_counter = 2,
+
+    // Scratchpad and Accumulator input/output options
+    acc_read_full_width = true,
+    acc_read_small_width = true,
+
+    ex_read_from_spad = true,
+    ex_read_from_acc = true,
+    ex_write_to_spad = true,
+    ex_write_to_acc = true,
+  )
 
 
 
@@ -544,7 +756,18 @@ object GemminiConfigs {
     meshRows=32, meshColumns=32
   )
 
-  val leanConfig = defaultConfig.copy(dataflow=Dataflow.WS, max_in_flight_mem_reqs = 64, acc_read_full_width = false, ex_read_from_acc = false, ex_write_to_spad = false, hardcode_d_to_garbage_addr = true)
+  val largeConfig = defaultConfig.copy(sp_capacity=CapacityInKilobytes(128), acc_capacity=CapacityInKilobytes(64),
+    tileRows=1, tileColumns=1,
+    meshRows=32, meshColumns=32
+  )
+
+  val veryLargeConfig = defaultConfig.copy(sp_capacity=CapacityInKilobytes(128), acc_capacity=CapacityInKilobytes(64),
+    tileRows=1, tileColumns=1,
+    meshRows=64, meshColumns=64
+  )
+
+
+  val leanConfig = defaultConfig.copy(dataflow=Dataflow.WS, meshRows = 8, meshColumns = 8, max_in_flight_mem_reqs = 64, acc_read_full_width = false, ex_read_from_acc = false, ex_write_to_spad = false, hardcode_d_to_garbage_addr = true)
 
   val leanConfig2 = defaultConfig.copy(dataflow=Dataflow.WS, max_in_flight_mem_reqs = 32, acc_read_full_width = false, ex_read_from_acc = false, ex_write_to_spad = false, hardcode_d_to_garbage_addr = true)
 
@@ -570,6 +793,30 @@ class DefaultGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
   )
 })
 
+class LargeGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
+  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.largeConfig
+) extends Config((site, here, up) => {
+  case BuildRoCC => up(BuildRoCC) ++ Seq(
+    (p: Parameters) => {
+      implicit val q = p
+      val gemmini = LazyModule(new Gemmini(gemminiConfig))
+      gemmini
+    }
+  )
+})
+
+class VeryLargeGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
+  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.veryLargeConfig
+) extends Config((site, here, up) => {
+  case BuildRoCC => up(BuildRoCC) ++ Seq(
+    (p: Parameters) => {
+      implicit val q = p
+      val gemmini = LazyModule(new Gemmini(gemminiConfig))
+      gemmini
+    }
+  )
+})
+
 /**
  * This one will be half the default gemmini config for reference
  */
@@ -585,19 +832,6 @@ class Gemmini1Config[T <: Data : Arithmetic, U <: Data, V <: Data](
     }
   )
 })
-
-class Gemmini2Config[T <: Data : Arithmetic, U <: Data, V <: Data](
-  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.no2Config
-) extends Config((site, here, up) => {
-  case BuildRoCC => up(BuildRoCC) ++ Seq(
-    (p: Parameters) => {
-      implicit val q = p
-      val gemmini = LazyModule(new Gemmini(gemminiConfig))
-      gemmini
-    }
-  )
-})
-
 
 /**
  * Mixin which sets the default lean parameters for a systolic array accelerator.
@@ -625,6 +859,19 @@ class LeanGemminiPrintfConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
     }
   )
 })
+
+class ZedGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
+  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.smallerZedConfig
+) extends Config((site, here, up) => {
+  case BuildRoCC => up(BuildRoCC) ++ Seq(
+    (p: Parameters) => {
+      implicit val q = p
+      val gemmini = LazyModule(new Gemmini(gemminiConfig))
+      gemmini
+    }
+  )
+})
+
 
 class DummyDefaultGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
   gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.dummyConfig
