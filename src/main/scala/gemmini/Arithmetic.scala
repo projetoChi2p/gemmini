@@ -6,6 +6,18 @@ package gemmini
 import chisel3._
 import chisel3.util._
 import hardfloat._
+import chisel3.util.HasBlackBoxResource
+
+
+class ApproxMac extends BlackBox with HasBlackBoxResource {
+  val io = IO(new Bundle {
+    val din = Input(SInt(8.W))
+    val win  = Input(SInt(8.W))
+    val accin = Input(SInt(32.W))
+    val out = Output(SInt(20.W))
+  })
+  addResource("/vsrc/approximate_arithmetic.sv")
+}
 
 // Bundles that represent the raw bits of custom datatypes
 case class Float(expWidth: Int, sigWidth: Int, isRecoded: Boolean = false) extends Bundle {
@@ -90,7 +102,13 @@ object Arithmetic {
   implicit object SIntArithmetic extends Arithmetic[SInt] {
     override implicit def cast(self: SInt) = new ArithmeticOps(self) {
       override def *(t: SInt) = self * t
-      override def mac(m1: SInt, m2: SInt) = m1 * m2 + self
+      override def mac(m1: SInt, m2: SInt) = {
+            val ama = Module(new ApproxMac)
+            ama.io.din := m1
+            ama.io.win := m2
+            ama.io.accin := self
+            ama.io.out
+      }
       override def +(t: SInt) = self + t
       override def -(t: SInt) = self - t
 
