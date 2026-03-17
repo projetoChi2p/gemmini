@@ -58,11 +58,11 @@ object GemminiConfigs {
     meshColumns = 8,
 
     // Spatial array PE options
-    dataflow = Dataflow.BOTH,
+    dataflow = Dataflow.WS,
 
     // Scratchpad and accumulator
-    sp_capacity = CapacityInKilobytes(256),
-    acc_capacity = CapacityInKilobytes(128),
+    sp_capacity = CapacityInKilobytes(128),
+    acc_capacity = CapacityInKilobytes(64),
 
     sp_banks = 4,
     acc_banks = 2,
@@ -96,6 +96,20 @@ object GemminiConfigs {
 
     // Mvin and Accumulator scalar multiply options
     mvin_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new DTypeScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), 4,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})",
+    )),
+
+      /*Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val f_rec = recFNFromFN(f.expWidth, f.sigWidth, f.bits)
 
@@ -132,12 +146,27 @@ object GemminiConfigs {
       4, Float(8, 24), 4,
       identity = "1.0",
       c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})"
-    )),
+    )),*/
 
     mvin_scale_acc_args = None,
     mvin_scale_shared = false,
 
     acc_scale_args = Some(ScaleArguments(
+      (t: SInt, f: Float) => {
+        val v = Wire(SInt(8.W))
+        val Scale = Module(new AccScale)
+        v := Scale.io.out
+        Scale.io.din := t
+        Scale.io.scale := f
+        v
+      },
+      1, Float(8, 24), -1,
+      identity = "1.0",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})",
+    )),
+
+
+      /*Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val f_rec = recFNFromFN(f.expWidth, f.sigWidth, f.bits)
 
@@ -174,7 +203,7 @@ object GemminiConfigs {
       8, Float(8, 24), -1,
       identity = "1.0",
       c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})"
-    )),
+    )),*/
 
     // SoC counters options
     num_counter = 8,
@@ -511,7 +540,7 @@ object GemminiConfigs {
     sp_banks = 4,
     acc_banks = 2,
 
-    sp_singleported = false,
+    sp_singleported = true,
     acc_singleported = false,
 
     // DNN options
@@ -530,7 +559,7 @@ object GemminiConfigs {
     ex_queue_length = 8,
 
     // DMA options
-    max_in_flight_mem_reqs = 16,
+    max_in_flight_mem_reqs = 8,
 
     dma_maxbytes = 64,
     dma_buswidth = 128,
@@ -627,7 +656,7 @@ object GemminiConfigs {
     ex_queue_length = 8,
 
     // DMA options
-    max_in_flight_mem_reqs = 4,
+    max_in_flight_mem_reqs = 8,
 
     dma_maxbytes = 64,
     dma_buswidth = 128,
@@ -861,7 +890,7 @@ class LeanGemminiPrintfConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
 })
 
 class ZedGemminiConfig[T <: Data : Arithmetic, U <: Data, V <: Data](
-  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.smallerZedConfig
+  gemminiConfig: GemminiArrayConfig[T,U,V] = GemminiConfigs.evenSmallerZedConfig
 ) extends Config((site, here, up) => {
   case BuildRoCC => up(BuildRoCC) ++ Seq(
     (p: Parameters) => {
