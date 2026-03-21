@@ -246,16 +246,41 @@ object GemminiConfigs {
     // Mvin and Accumulator scalar multiply options
     mvin_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
-        val v = Wire(SInt(8.W))
-        val Scale = Module(new DTypeScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
-        v
+        val f_rec = recFNFromFN(f.expWidth, f.sigWidth, f.bits)
+
+        val in_to_rec_fn = Module(new INToRecFN(t.getWidth, f.expWidth, f.sigWidth))
+        in_to_rec_fn.io.signedIn := true.B
+        in_to_rec_fn.io.in := t.asTypeOf(UInt(t.getWidth.W))
+        in_to_rec_fn.io.roundingMode := consts.round_near_even
+        in_to_rec_fn.io.detectTininess := consts.tininess_afterRounding
+
+        val t_rec = in_to_rec_fn.io.out
+
+        val muladder = Module(new MulAddRecFN(f.expWidth, f.sigWidth))
+        muladder.io.op := 0.U
+        muladder.io.roundingMode := consts.round_near_even
+        muladder.io.detectTininess := consts.tininess_afterRounding
+
+        muladder.io.a := t_rec
+        muladder.io.b := f_rec
+        muladder.io.c := 0.U
+
+        val rec_fn_to_in = Module(new RecFNToIN(f.expWidth, f.sigWidth, t.getWidth))
+        rec_fn_to_in.io.in := muladder.io.out
+        rec_fn_to_in.io.roundingMode := consts.round_near_even
+        rec_fn_to_in.io.signedOut := true.B
+
+        val overflow = rec_fn_to_in.io.intExceptionFlags(1)
+        val maxsat = ((1 << (t.getWidth-1))-1).S
+        val minsat = (-(1 << (t.getWidth-1))).S
+        val sign = rawFloatFromRecFN(f.expWidth, f.sigWidth, rec_fn_to_in.io.in).sign
+        val sat = Mux(sign, minsat, maxsat)
+
+        Mux(overflow, sat, rec_fn_to_in.io.out.asTypeOf(t))
       },
-      1, Float(8, 24), 4,
+      4, Float(8, 24), 4,
       identity = "1.0",
-      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (elem_t)y);})"
     )),
 
     mvin_scale_acc_args = None,
@@ -263,16 +288,41 @@ object GemminiConfigs {
 
     acc_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
-        val v = Wire(SInt(8.W))
-        val Scale = Module(new AccScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
-        v
+        val f_rec = recFNFromFN(f.expWidth, f.sigWidth, f.bits)
+
+        val in_to_rec_fn = Module(new INToRecFN(t.getWidth, f.expWidth, f.sigWidth))
+        in_to_rec_fn.io.signedIn := true.B
+        in_to_rec_fn.io.in := t.asTypeOf(UInt(t.getWidth.W))
+        in_to_rec_fn.io.roundingMode := consts.round_near_even
+        in_to_rec_fn.io.detectTininess := consts.tininess_afterRounding
+
+        val t_rec = in_to_rec_fn.io.out
+
+        val muladder = Module(new MulAddRecFN(f.expWidth, f.sigWidth))
+        muladder.io.op := 0.U
+        muladder.io.roundingMode := consts.round_near_even
+        muladder.io.detectTininess := consts.tininess_afterRounding
+
+        muladder.io.a := t_rec
+        muladder.io.b := f_rec
+        muladder.io.c := 0.U
+
+        val rec_fn_to_in = Module(new RecFNToIN(f.expWidth, f.sigWidth, t.getWidth))
+        rec_fn_to_in.io.in := muladder.io.out
+        rec_fn_to_in.io.roundingMode := consts.round_near_even
+        rec_fn_to_in.io.signedOut := true.B
+
+        val overflow = rec_fn_to_in.io.intExceptionFlags(1)
+        val maxsat = ((1 << (t.getWidth-1))-1).S
+        val minsat = (-(1 << (t.getWidth-1))).S
+        val sign = rawFloatFromRecFN(f.expWidth, f.sigWidth, rec_fn_to_in.io.in).sign
+        val sat = Mux(sign, minsat, maxsat)
+
+        Mux(overflow, sat, rec_fn_to_in.io.out.asTypeOf(t))
       },
-      1, Float(8, 24), -1,
+      8, Float(8, 24), -1,
       identity = "1.0",
-      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})",
+      c_str = "({float y = ROUND_NEAR_EVEN((x) * (scale)); y > INT8_MAX ? INT8_MAX : (y < INT8_MIN ? INT8_MIN : (acc_t)y);})"
     )),
 
     // SoC counters options

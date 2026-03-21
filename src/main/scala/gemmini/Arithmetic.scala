@@ -13,7 +13,7 @@ class ApproxMac extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val din = Input(SInt(8.W))
     val win  = Input(SInt(8.W))
-    val accin = Input(SInt(32.W))
+    val accin = Input(SInt(20.W))
     val out = Output(SInt(20.W))
   })
   addResource("/vsrc/approximate_arithmetic.sv")
