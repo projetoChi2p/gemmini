@@ -1,5 +1,4 @@
-`timescale 1ns / 1ps
-module AccScale (
+module Scale (
     input signed [31:0] din,
     input [31:0] scale_bits,
     output signed [7:0] out

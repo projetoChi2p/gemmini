@@ -16,24 +16,14 @@ import hardfloat._
 import chisel3.util.HasBlackBoxResource
 
 
-class AccScale extends BlackBox with HasBlackBoxResource {
+class Scale extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val din = Input(SInt(32.W))
     val scale  = Input(Float(8, 24))
     val out = Output(SInt(8.W))
   })
-  addResource("/vsrc/acc_scale.sv")
+  addResource("/vsrc/scale.sv")
 }
-
-class DTypeScale extends BlackBox with HasBlackBoxResource {
-  val io = IO(new Bundle {
-    val din = Input(SInt(8.W))
-    val scale  = Input(Float(8, 24))
-    val out = Output(SInt(8.W))
-  })
-  addResource("/vsrc/dtype_scale.sv")
-}
-
 
 // -----------------------
 // Component Mixin Configs
@@ -98,10 +88,10 @@ object GemminiConfigs {
     mvin_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new DTypeScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), 4,
@@ -154,10 +144,10 @@ object GemminiConfigs {
     acc_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new AccScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), -1,
@@ -571,10 +561,10 @@ object GemminiConfigs {
     mvin_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new DTypeScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), 4,
@@ -588,10 +578,10 @@ object GemminiConfigs {
     acc_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new AccScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), -1,
@@ -668,10 +658,10 @@ object GemminiConfigs {
     mvin_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new DTypeScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), 4,
@@ -685,10 +675,10 @@ object GemminiConfigs {
     acc_scale_args = Some(ScaleArguments(
       (t: SInt, f: Float) => {
         val v = Wire(SInt(8.W))
-        val Scale = Module(new AccScale)
-        v := Scale.io.out
-        Scale.io.din := t
-        Scale.io.scale := f
+        val scale = Module(new Scale)
+        v := scale.io.out
+        scale.io.din := t
+        scale.io.scale := f
         v
       },
       1, Float(8, 24), -1,
